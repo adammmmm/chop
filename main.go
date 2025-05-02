@@ -26,7 +26,7 @@ func main() {
 		packetSource := gopacket.NewPacketSource(handler, handler.LinkType())
 		if checkChopSize(packetSource.Packets(), i) {
 			size = i
-			log.Printf("Found valid chop size: %d, run editcap -C %d -T rawip on this type of traffic\n", size, size)
+			log.Printf("Found valid chop size: %d, run editcap -C %d -T rawip\n", size, size)
 			break
 		}
 	}
