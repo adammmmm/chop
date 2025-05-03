@@ -1,43 +1,56 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
 
-func main() {
-	var size int
-	if len(os.Args) != 2 {
-		log.Fatal("Usage: chop <pcap_file>")
-	}
-	pcapFile := os.Args[1]
+const (
+	minChopSize = 14
+	maxChopSize = 128
+)
 
-	for i := 128; i > 14; i-- {
+func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: chop <pcap_file>")
+		os.Exit(1)
+	}
+	pcapFile := filepath.Clean(os.Args[1])
+	result := findValidChopSize(pcapFile)
+	if result != "" {
+		fmt.Println(result)
+	}
+}
+
+// findValidChopSize takes a pcap file and iterates downwards from maxChopSize to minChopSize
+// until it finds one that results in valid packets.
+func findValidChopSize(pcapFile string) string {
+	for chopSize := maxChopSize; chopSize > minChopSize; chopSize-- {
 		handler, err := pcap.OpenOffline(pcapFile)
 		if err != nil {
-			log.Fatalf("error opening file: %v", err)
+			return fmt.Sprintf("error opening file: %v", err)
 		}
 		defer handler.Close()
 
 		packetSource := gopacket.NewPacketSource(handler, handler.LinkType())
-		if checkChopSize(packetSource.Packets(), i) {
-			size = i
-			log.Printf("Found valid chop size: %d, run editcap -C %d -T rawip\n", size, size)
-			break
+		if isValidChopSize(packetSource.Packets(), chopSize) {
+			return fmt.Sprintf("Found valid chop size: %d, run editcap -C %d -T rawip", chopSize, chopSize)
 		}
 	}
-	if size == 0 {
-		log.Fatal("could not find valid chop size, most likely not encapsulated")
-	}
+	return "could not find valid chop size, most likely not encapsulated"
 }
 
-func checkChopSize(packets <-chan gopacket.Packet, chopSize int) bool {
+// isValidChopSize goes through all packets in a packets channel and slices them by chopSize,
+// It returns true if all packets are valid post slicing, and false if any are invalid.
+func isValidChopSize(packets <-chan gopacket.Packet, chopSize int) bool {
 	for packet := range packets {
 		if len(packet.Data()) < chopSize {
+			// skip packets that are too small to chop
 			continue
 		}
 		packetData := packet.Data()[chopSize:]
