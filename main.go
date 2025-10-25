@@ -45,7 +45,7 @@ func findValidChopSize(pcapFile string) string {
 			return fmt.Sprintf("Found valid chop size: %d, run editcap -C %d -T rawip <inputfilename> <outputfilename>", chopSize, chopSize)
 		}
 	}
-	return "couldn't find valid chop size, most likely not encapsulated"
+	return "could not find valid chop size, most likely not encapsulated"
 }
 
 // isValidChopSize goes through all packets in a packets channel and slices them by chopSize,
