@@ -38,23 +38,26 @@ func findValidChopSize(pcapFile string) string {
 		defer handler.Close()
 
 		packetSource := gopacket.NewPacketSource(handler, handler.LinkType())
-		if isValidChopSize(packetSource.Packets(), chopSize) {
-			return fmt.Sprintf("Found valid chop size: %d, run editcap -C %d -T rawip", chopSize, chopSize)
+		if isValidChopSize(packetSource.Packets(), chopSize, layers.LinkTypeEthernet) {
+			return fmt.Sprintf("Found valid chop size: %d, run editcap -C %d <inputfilename> <outputfilename>", chopSize, chopSize)
+		}
+		if isValidChopSize(packetSource.Packets(), chopSize, layers.LinkTypeRaw) {
+			return fmt.Sprintf("Found valid chop size: %d, run editcap -C %d -T rawip <inputfilename> <outputfilename>", chopSize, chopSize)
 		}
 	}
-	return "could not find valid chop size, most likely not encapsulated"
+	return "coludn't find valid chop size, most likely not encapsulated"
 }
 
 // isValidChopSize goes through all packets in a packets channel and slices them by chopSize,
 // It returns true if all packets are valid post slicing, and false if any are invalid.
-func isValidChopSize(packets <-chan gopacket.Packet, chopSize int) bool {
+func isValidChopSize(packets <-chan gopacket.Packet, chopSize int, linkType layers.LinkType) bool {
 	for packet := range packets {
 		if len(packet.Data()) < chopSize {
 			// skip packets that are too small to chop
 			continue
 		}
 		packetData := packet.Data()[chopSize:]
-		newPacket := gopacket.NewPacket(packetData, layers.LinkTypeRaw, gopacket.Default)
+		newPacket := gopacket.NewPacket(packetData, linkType, gopacket.Default)
 		if err := newPacket.ErrorLayer(); err != nil {
 			return false
 		}
